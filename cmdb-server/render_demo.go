@@ -75,9 +75,9 @@ func RenderExample() {
 	var err error
 	var dot string
 	for index, g := range settingData.Graphs {
-		if index == 0 {
-			continue
-		}
+		//if index == 0 {
+		//	continue
+		//}
 		fmt.Println(index, g.Name, g.ViewGraphType)
 		if dot, err = graph.RenderGraph(
 			g,
