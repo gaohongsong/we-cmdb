@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
-	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -42,7 +41,7 @@ func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption)
 			FontSize:      14,
 			FontStep:      0,
 			ImagesMap:     imageMap,
-			RenderedItems: renderedItems,
+			RenderedItems: &renderedItems,
 		}
 		label := renderLabel(graph.RootData.DisplayExpression, graphData)
 		renderedItems = append(renderedItems, guid)
@@ -97,10 +96,12 @@ func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption)
 		}
 	}
 
-	v, _ := json.Marshal(lines)
-	fmt.Printf("lines: \n%s\n", v)
+	//v, _ := json.Marshal(lines)
+	//fmt.Printf("lines: \n%s\n", v)
 	for _, line := range lines {
-		dot += renderLine(line.Setting, line.DataList, line.MetaData, renderedItems)
+		dotLine := renderLine(line.Setting, line.DataList, line.MetaData, renderedItems)
+		//fmt.Printf("%d ---> \n %s", index, dotLine)
+		dot += dotLine
 	}
 
 	dot += "}\n"
@@ -131,18 +132,16 @@ func renderChildren(children []*models.GraphElementNode, graphElement MapData, m
 // renderChild 渲染子元素
 func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaData) (ret RenderResult) {
 	// 子图字体逐级调小
-	if meta.GraphType == "subgraph" {
-		// 修改meta的副本不会影响外面的meta，不再需要手动copy
-		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
-	}
+	//if meta.GraphType == "subgraph" {
+	//	// 修改meta的副本不会影响外面的meta，不再需要手动copy
+	//	meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
+	//}
+	newMeta := copyMetaData(meta)
 
 	// todo
 	var childData []MapData
 	tmp, _ := json.Marshal(graphData[child.DataName])
-	err := json.Unmarshal(tmp, &childData)
-	if err != nil {
-		log.Fatal(err)
-	}
+	_ = json.Unmarshal(tmp, &childData)
 
 	//fmt.Printf("childData: %v+", childData)
 	//childData, ok = graphData[child.DataName].([]MapData)
@@ -154,23 +153,23 @@ func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaDat
 
 	switch child.GraphType {
 	case "subgraph":
-		ret = renderSubgraph(child, childData, meta)
+		ret = renderSubgraph(child, childData, newMeta)
 	case "image":
-		ret = renderImage(child, graphData, childData, meta)
+		parentGuid := mapGetStringAttr(graphData, "guid")
+		ret = renderImage(child, parentGuid, childData, newMeta)
 		ret.DotString += nodeDot
 	case "node":
-		ret = renderNode(child, graphData, childData, meta)
+		parentGuid := mapGetStringAttr(graphData, "guid")
+		ret = renderNode(child, parentGuid, childData, newMeta)
 		ret.DotString += nodeDot
 	case "line":
 		ret = RenderResult{
 			Lines: []Line{{
 				Setting:  child,
 				DataList: childData,
-				MetaData: meta,
+				MetaData: newMeta,
 			}},
 		}
-	default:
-		panic("graph type not supported: " + child.GraphType)
 	}
 	return
 }
@@ -188,7 +187,7 @@ func renderSubgraph(child *models.GraphElementNode, graphElements []MapData, met
 		guid := mapGetStringAttr(gEl, "guid")
 		keyName := mapGetStringAttr(gEl, "key_name")
 
-		if isIn(guid, meta.RenderedItems) {
+		if isIn(guid, *meta.RenderedItems) {
 			continue
 		}
 
@@ -228,7 +227,7 @@ func renderSubgraph(child *models.GraphElementNode, graphElements []MapData, met
 	return RenderResult{DotString: dotString.String(), Lines: lines, RenderedItems: renderedItems}
 }
 
-func renderImage(child *models.GraphElementNode, parent MapData, graphDataList []MapData, meta MetaData) RenderResult {
+func renderImage(child *models.GraphElementNode, parentGuid string, graphDataList []MapData, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dotString strings.Builder
@@ -243,7 +242,6 @@ func renderImage(child *models.GraphElementNode, parent MapData, graphDataList [
 	}
 
 	// 遍历节点数据
-	parentGuid := mapGetStringAttr(parent, "guid")
 	for _, data := range graphDataList {
 		guid := mapGetStringAttr(data, "guid")
 		// 检查过滤条件
@@ -252,10 +250,9 @@ func renderImage(child *models.GraphElementNode, parent MapData, graphDataList [
 		}
 
 		// 检查是否已经渲染
-		if isIn(guid, meta.RenderedItems) {
+		if isIn(guid, *meta.RenderedItems) {
 			continue
 		}
-
 		renderedItems = append(renderedItems, guid)
 		var nodeString strings.Builder
 
@@ -304,7 +301,7 @@ func renderImage(child *models.GraphElementNode, parent MapData, graphDataList [
 		dotString.WriteString(nodeString.String())
 
 		// 如果存在父节点并且图形类型是 group，则添加连线
-		if parent != nil && meta.GraphType == "group" {
+		if parentGuid != "" && meta.GraphType == "group" {
 			dotString.WriteString(fmt.Sprintf(`%s -> %s [arrowsize=0]\n`, parentGuid, guid))
 		}
 
@@ -333,7 +330,7 @@ func renderImage(child *models.GraphElementNode, parent MapData, graphDataList [
 	}
 }
 
-func renderNode(child *models.GraphElementNode, parent MapData, graphDataList []MapData, meta MetaData) RenderResult {
+func renderNode(child *models.GraphElementNode, parentGuid string, graphDataList []MapData, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dotString strings.Builder
@@ -349,7 +346,7 @@ func renderNode(child *models.GraphElementNode, parent MapData, graphDataList []
 		}
 
 		// If the node is already rendered, skip it
-		if isIn(guid, meta.RenderedItems) {
+		if isIn(guid, *meta.RenderedItems) {
 			continue
 		}
 
@@ -424,12 +421,6 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 	defaultShape := "normal"
 	var lines []Line
 
-	// 子图字体逐级调小
-	if meta.GraphType == "subgraph" {
-		// 修改meta的副本不会影响外面的meta，不再需要手动copy
-		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
-	}
-
 	// Iterate through each data item in the graphDataList
 	for _, data := range graphDataList {
 		// If the filter fails for the current data, continue to the next item
@@ -437,31 +428,40 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 			continue
 		}
 
-		// todo
-		var childData []MapData
-		tmp, _ := json.Marshal(data[settings.DataName])
-		_ = json.Unmarshal(tmp, &childData)
-
 		// Iterate over settings elements in the setting
 		for _, child := range settings.Children {
 			var ret RenderResult
 
+			// todo
+			var childData []MapData
+			tmp, _ := json.Marshal(data[child.DataName])
+			_ = json.Unmarshal(tmp, &childData)
+
+			// 子图字体逐级调小
+			//if meta.GraphType == "subgraph" {
+			//	// 修改meta的副本不会影响外面的meta，不再需要手动copy
+			//	meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
+			//}
+
+			newMeta := copyMetaData(meta)
+
 			// Process based on the graphType
 			switch child.GraphType {
 			case "subgraph":
-				ret = renderSubgraph(child, childData, meta)
+				ret = renderSubgraph(child, childData, newMeta)
 			case "image":
-				ret = renderImage(child, data, childData, meta)
+				parentGuid := mapGetStringAttr(data, "guid")
+				ret = renderImage(child, parentGuid, childData, newMeta)
 			case "node":
-				ret = renderNode(child, data, childData, meta)
+				parentGuid := mapGetStringAttr(data, "guid")
+				ret = renderNode(child, parentGuid, childData, newMeta)
 			case "line":
 				lines = append(lines, Line{
 					Setting:  child,
 					DataList: graphDataList,
-					MetaData: meta,
+					MetaData: newMeta,
 				})
 			}
-
 			if child.GraphType != "line" {
 				dotString.WriteString(ret.DotString)
 				lines = append(lines, ret.Lines...)
@@ -478,10 +478,10 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 		for _, hLine := range headLines {
 			for _, tLine := range tailLines {
 				// Only render lines if both head and tail are already rendered
-				//if !isIn(hLine, renderedItems) || !isIn(tLine, renderedItems) {
-				//	fmt.Printf("ignore line: %s -> %s\n items=%s", hLine, tLine, renderedItems)
-				//	continue
-				//}
+				if !isIn(hLine, renderedItems) || !isIn(tLine, renderedItems) {
+					fmt.Printf("ignore line: %s -> %s\n items=%s", hLine, tLine, renderedItems)
+					continue
+				}
 
 				// Create line string
 				lineString := fmt.Sprintf("%s -> %s", hLine, tLine)
@@ -596,4 +596,24 @@ func countDepth(graph models.GraphQuery) int {
 		}
 	}
 	return maxDepth
+}
+
+func copyMetaData(metaData MetaData) MetaData {
+	newMetaData := MetaData{
+		ConfirmTime:   metaData.ConfirmTime,
+		FontSize:      metaData.FontSize,
+		FontStep:      metaData.FontStep,
+		GraphDir:      metaData.GraphDir,
+		GraphType:     metaData.GraphType,
+		ImagesMap:     metaData.ImagesMap,
+		RenderedItems: metaData.RenderedItems,
+		SuportVersion: metaData.SuportVersion,
+	}
+
+	if newMetaData.GraphType == "subgraph" {
+		// 修改meta的副本不会影响外面的meta，不再需要手动copy
+		newMetaData.FontSize = math.Round((newMetaData.FontSize-newMetaData.FontStep)*100) / 100
+	}
+
+	return newMetaData
 }

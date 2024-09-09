@@ -218,7 +218,7 @@ export default {
         [graphIndex]
       )[0]
       this.dotString = dotString
-      // console.log(dotString)
+      console.log(dotString)
       let graph = d3.select(id)
       if (dotString.startsWith('sequenceDiagram')) {
         const element = document.querySelector(id)

@@ -360,6 +360,7 @@ export default {
         this.onClearViewSelect()
         const { data } = await graphViewDetail(key)
         this.viewSetting = data
+        // console.log(data)
       }
     },
     onClearViewSelect () {
@@ -553,6 +554,7 @@ export default {
       this.viewData = []
       this.$nextTick(function () {
         this.viewData = data
+        // console.log(data)
         this.generateCiTypeTab()
         if (this.viewSetting.graphs.length > 0) {
           this.$refs.tab.activeKey = 'tabgraph0'
@@ -672,6 +674,7 @@ export default {
           this.ciTypeMapping[_.ciTypeId] = _
         })
       }
+      // console.log(this.ciTypeMapping)
     },
     async generateCiTypeTab () {
       this.ciTypeTables = []

@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/api/middleware"
+	"github.com/WeBankPartners/we-cmdb/cmdb-server/common/log"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/services/db"
 	"github.com/gin-gonic/gin"
@@ -179,6 +180,9 @@ func GetViewData(c *gin.Context) {
 		middleware.ReturnServerHandleError(c, err)
 		return
 	}
+	// todo: build dotString
+	log.Logger.Info("build dot string")
+
 	if len(rowDataList) == 0 {
 		middleware.ReturnData(c, []string{})
 	} else {

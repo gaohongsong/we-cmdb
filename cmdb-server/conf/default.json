@@ -1,8 +1,8 @@
 {
-  "is_plugin_mode": "yes",
+  "is_plugin_mode": "no",
   "default_language": "en",
   "http_server": {
-    "port": "",
+    "port": "19090",
     "cross": true
   },
   "log": {
@@ -19,7 +19,7 @@
     "server": "127.0.0.1",
     "port": "3306",
     "user": "root",
-    "password": "root",
+    "password": "miya.12345",
     "database": "wecmdb",
     "maxOpen": 50,
     "maxIdle": 10,

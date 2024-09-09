@@ -18,20 +18,20 @@ type MetaData struct {
 	FontStep      float64   `json:"font_step"`
 	SuportVersion string    `json:"suport_version"`
 	ImagesMap     MapString `json:"imagesMap"`
-	RenderedItems []string  `json:"renderedItems"`
+	RenderedItems *[]string `json:"renderedItems"`
 }
 
 type Line struct {
-	Setting  *models.GraphElementNode
-	DataList []MapData
-	MetaData MetaData
+	Setting  *models.GraphElementNode `json:"setting"`
+	DataList []MapData                `json:"datas"`
+	MetaData MetaData                 `json:"metadata"`
 }
 
 type RenderResult struct {
-	DotString     string
-	Lines         []Line
-	RenderedItems []string
-	Error         error
+	DotString     string   `json:"dot_string"`
+	Lines         []Line   `json:"lines"`
+	RenderedItems []string `json:"renderedItems"`
+	Error         error    `json:"error,omitempty"`
 }
 
 // Element 暂时没用到，后续考虑将map部分结构化
