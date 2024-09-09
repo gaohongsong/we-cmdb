@@ -13,7 +13,7 @@ var (
 	defaultStyle = "penwidth=1;color=black;"
 )
 
-// RenderDot 渲染dot图
+// RenderDot render dot graph
 func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption) (dot string, err error) {
 	suportVersion := option.SuportVersion
 	imageMap := option.ImageMap
@@ -109,7 +109,7 @@ func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption)
 	return
 }
 
-// renderChildren 渲染给定父元素的所有子元素
+// renderChildren render children elements
 func renderChildren(children []*models.GraphElementNode, graphData MapData, meta MetaData) RenderResult {
 	var dot string
 	var lines []Line
@@ -129,7 +129,7 @@ func renderChildren(children []*models.GraphElementNode, graphData MapData, meta
 	}
 }
 
-// renderChild 渲染子元素
+// renderChild render child element
 func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaData) (ret RenderResult) {
 	if meta.GraphType == "subgraph" {
 		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
