@@ -79,7 +79,7 @@ func RenderExample() {
 		//	continue
 		//}
 		fmt.Println(index, g.Name, g.ViewGraphType)
-		if dot, err = graph.RenderGraph(
+		if dot, err = graph.Render(
 			g,
 			viewData,
 			graph.RenderOption{SuportVersion: settingData.SuportVersion, ImageMap: imageMap},

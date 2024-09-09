@@ -315,7 +315,7 @@ func GetViewGraphData(c *gin.Context) {
 	fmt.Printf("dataList: %v\n", dataList)
 	var dots []string
 	for _, g := range setting.Graphs {
-		dot, _ := graph.RenderGraph(*g, dataList, graph.RenderOption{ImageMap: map[string]string{}})
+		dot, _ := graph.Render(*g, dataList, graph.RenderOption{ImageMap: map[string]string{}})
 		dots = append(dots, dot)
 	}
 
