@@ -110,13 +110,13 @@ func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption)
 }
 
 // renderChildren 渲染给定父元素的所有子元素
-func renderChildren(children []*models.GraphElementNode, graphElement MapData, meta MetaData) RenderResult {
+func renderChildren(children []*models.GraphElementNode, graphData MapData, meta MetaData) RenderResult {
 	var dotString string
 	var lines []Line
 	var renderedItems []string
 
 	for _, child := range children {
-		ret := renderChild(child, graphElement, meta)
+		ret := renderChild(child, graphData, meta)
 		dotString += ret.DotString
 		lines = append(lines, ret.Lines...)
 		renderedItems = append(renderedItems, ret.RenderedItems...)
@@ -175,18 +175,18 @@ func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaDat
 	return
 }
 
-func renderSubgraph(child *models.GraphElementNode, graphElements []MapData, meta MetaData) RenderResult {
+func renderSubgraph(el *models.GraphElementNode, dataList []MapData, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 
 	var dotString strings.Builder
 
-	for _, gEl := range graphElements {
-		if isFilterFailed(child, gEl) {
+	for _, data := range dataList {
+		if isFilterFailed(el, data) {
 			continue
 		}
-		guid := mapGetStringAttr(gEl, "guid")
-		keyName := mapGetStringAttr(gEl, "key_name")
+		guid := mapGetStringAttr(data, "guid")
+		keyName := mapGetStringAttr(data, "key_name")
 
 		if isIn(guid, *meta.RenderedItems) {
 			continue
@@ -194,8 +194,8 @@ func renderSubgraph(child *models.GraphElementNode, graphElements []MapData, met
 
 		renderedItems = append(renderedItems, guid)
 
-		label := renderLabel(child.DisplayExpression, gEl)
-		style := getStyle(child.GraphConfigData, child.GraphConfigs, gEl, meta, defaultStyle)
+		label := renderLabel(el.DisplayExpression, data)
+		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultStyle)
 
 		tooltip := keyName
 		if tooltip == "" {
@@ -215,8 +215,8 @@ func renderSubgraph(child *models.GraphElementNode, graphElements []MapData, met
 		dotString.WriteString(strings.Join(subgraphAttrs, ";") + "\n")
 		dotString.WriteString(fmt.Sprintf("%s[penwidth=0;width=0;height=0;label=\"\"];\n", guid))
 
-		if child.Children != nil {
-			ret := renderChildren(child.Children, gEl, meta)
+		if el.Children != nil {
+			ret := renderChildren(el.Children, data, meta)
 			lines = append(lines, ret.Lines...)
 			renderedItems = append(renderedItems, ret.RenderedItems...)
 			dotString.WriteString(ret.DotString)
@@ -228,7 +228,7 @@ func renderSubgraph(child *models.GraphElementNode, graphElements []MapData, met
 	return RenderResult{DotString: dotString.String(), Lines: lines, RenderedItems: renderedItems}
 }
 
-func renderImage(child *models.GraphElementNode, parentGuid string, graphDataList []MapData, meta MetaData) RenderResult {
+func renderImage(el *models.GraphElementNode, parentGuid string, dataList []MapData, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dotString strings.Builder
@@ -243,10 +243,10 @@ func renderImage(child *models.GraphElementNode, parentGuid string, graphDataLis
 	}
 
 	// 遍历节点数据
-	for _, data := range graphDataList {
+	for _, data := range dataList {
 		guid := mapGetStringAttr(data, "guid")
 		// 检查过滤条件
-		if isFilterFailed(child, data) {
+		if isFilterFailed(el, data) {
 			continue
 		}
 
@@ -259,13 +259,13 @@ func renderImage(child *models.GraphElementNode, parentGuid string, graphDataLis
 
 		// 根据图形类型构造节点字符串
 		if meta.GraphType == "group" {
-			nodeString.WriteString(fmt.Sprintf(`{rank=same;"%s"; %s`, child.NodeGroupName, guid))
+			nodeString.WriteString(fmt.Sprintf(`{rank=same;"%s"; %s`, el.NodeGroupName, guid))
 		} else {
 			nodeString.WriteString(guid)
 		}
 
 		// 渲染标签
-		label := renderLabel(child.DisplayExpression, data)
+		label := renderLabel(el.DisplayExpression, data)
 
 		// 节点属性
 		nodeAttrs := []string{
@@ -278,15 +278,15 @@ func renderImage(child *models.GraphElementNode, parentGuid string, graphDataLis
 		}
 
 		// 获取节点形状和样式
-		shape := getShape(child.GraphShapeData, child.GraphShapes, data, defaultShape)
-		style := getStyle(child.GraphConfigData, child.GraphConfigs, data, meta, defaultImageStyle)
+		shape := getShape(el.GraphShapeData, el.GraphShapes, data, defaultShape)
+		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultImageStyle)
 
 		// 扩展节点属性
 		nodeAttrs = append(nodeAttrs, []string{
 			fmt.Sprintf(`shape="%s"`, shape),
 			`labelloc="b"`,
 			fmt.Sprintf(`label="%s"`, calculateShapeLabel(shape, 1.1, meta.FontSize, label)),
-			fmt.Sprintf(`image="%s"`, meta.ImagesMap[child.CiType]),
+			fmt.Sprintf(`image="%s"`, meta.ImagesMap[el.CiType]),
 			style,
 		}...)
 
@@ -307,16 +307,16 @@ func renderImage(child *models.GraphElementNode, parentGuid string, graphDataLis
 		}
 
 		// 递归渲染子节点
-		ret := renderChildren(child.Children, data, meta)
+		ret := renderChildren(el.Children, data, meta)
 		dotString.WriteString(ret.DotString)
 		lines = append(lines, ret.Lines...)
 		renderedItems = append(renderedItems, ret.RenderedItems...)
 
 		// 添加额外的连线信息
-		if child.LineStartData != "" && child.LineEndData != "" {
-			child.Children = nil
+		if el.LineStartData != "" && el.LineEndData != "" {
+			el.Children = nil
 			lines = append(lines, Line{
-				Setting:  child,
+				Setting:  el,
 				MetaData: meta,
 				DataList: []MapData{data},
 			})
@@ -331,18 +331,18 @@ func renderImage(child *models.GraphElementNode, parentGuid string, graphDataLis
 	}
 }
 
-func renderNode(child *models.GraphElementNode, parentGuid string, graphDataList []MapData, meta MetaData) RenderResult {
+func renderNode(el *models.GraphElementNode, parentGuid string, dataList []MapData, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dotString strings.Builder
 	defaultShape := "ellipse"
 
-	// Iterate over each data in graphDataList
-	for _, data := range graphDataList {
+	// Iterate over each data in dataList
+	for _, data := range dataList {
 		guid := mapGetStringAttr(data, "guid")
 
 		// If the node doesn't pass the filter, continue
-		if isFilterFailed(child, data) {
+		if isFilterFailed(el, data) {
 			continue
 		}
 
@@ -362,16 +362,16 @@ func renderNode(child *models.GraphElementNode, parentGuid string, graphDataList
 		}
 
 		// Render the node's label
-		label := renderLabel(child.DisplayExpression, data)
+		label := renderLabel(el.DisplayExpression, data)
 
 		// Determine the node's shape
-		shape := getShape(child.GraphShapeData, child.GraphShapes, data, defaultShape)
+		shape := getShape(el.GraphShapeData, el.GraphShapes, data, defaultShape)
 
 		// Calculate label size based on shape
 		newLabel := calculateShapeLabel(shape, nodeWidth, meta.FontSize, label)
 
 		// Get node style
-		style := getStyle(child.GraphConfigData, child.GraphConfigs, data, meta, defaultStyle)
+		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultStyle)
 
 		// Add shape, width, label, tooltip, and style to attributes
 		nodeAttrs = append(nodeAttrs,
@@ -388,22 +388,22 @@ func renderNode(child *models.GraphElementNode, parentGuid string, graphDataList
 
 		// If this is a group graph type, add rank same logic
 		if meta.GraphType == "group" {
-			dotString.WriteString(fmt.Sprintf("{rank=same;\"%s\"; %s}\n", child.NodeGroupName, nodeString))
+			dotString.WriteString(fmt.Sprintf("{rank=same;\"%s\"; %s}\n", el.NodeGroupName, nodeString))
 		}
 
 		// Recursively render children of the current node
-		ret := renderChildren(child.Children, data, meta)
+		ret := renderChildren(el.Children, data, meta)
 		dotString.WriteString(ret.DotString)
 		lines = append(lines, ret.Lines...)
 		renderedItems = append(renderedItems, ret.RenderedItems...)
 
 		// If the node has line start and end data, generate line connections
-		if child.LineStartData != "" && child.LineEndData != "" {
-			child.Children = nil
-			//child.Children = []*models.GraphElementNode{}
-			//child.Children = make([]*models.GraphElementNode, 0)
+		if el.LineStartData != "" && el.LineEndData != "" {
+			el.Children = nil
+			//el.Children = []*models.GraphElementNode{}
+			//el.Children = make([]*models.GraphElementNode, 0)
 			lines = append(lines, Line{
-				Setting:  child,
+				Setting:  el,
 				MetaData: meta,
 				DataList: []MapData{data},
 			})
@@ -417,20 +417,20 @@ func renderNode(child *models.GraphElementNode, parentGuid string, graphDataList
 	}
 }
 
-func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta MetaData, renderedItems []string) string {
+func renderLine(el *models.GraphElementNode, dataList []MapData, meta MetaData, renderedItems []string) string {
 	var dotString strings.Builder
 	defaultShape := "normal"
 	var lines []Line
 
-	// Iterate through each data item in the graphDataList
-	for _, data := range graphDataList {
+	// Iterate through each data item in the dataList
+	for _, data := range dataList {
 		// If the filter fails for the current data, continue to the next item
-		if isFilterFailed(settings, data) {
+		if isFilterFailed(el, data) {
 			continue
 		}
 
-		// Iterate over settings elements in the setting
-		for _, child := range settings.Children {
+		// Iterate over el elements in the setting
+		for _, child := range el.Children {
 			var ret RenderResult
 
 			// todo
@@ -459,7 +459,7 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 			case "line":
 				lines = append(lines, Line{
 					Setting:  child,
-					DataList: graphDataList,
+					DataList: dataList,
 					MetaData: meta,
 				})
 			}
@@ -472,8 +472,8 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 		}
 
 		// Get head and tail lines
-		headLines := asList(data[settings.LineStartData])
-		tailLines := asList(data[settings.LineEndData])
+		headLines := asList(data[el.LineStartData])
+		tailLines := asList(data[el.LineEndData])
 
 		// Generate line strings between head and tail
 		for _, hLine := range headLines {
@@ -492,9 +492,9 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 				}
 
 				// Handle labels based on display position of line
-				if settings.GraphType == "line" {
-					label := renderLabel(settings.DisplayExpression, data)
-					switch settings.LineDisplayPosition {
+				if el.GraphType == "line" {
+					label := renderLabel(el.DisplayExpression, data)
+					switch el.LineDisplayPosition {
 					case "middle":
 						lineAttrs = append(lineAttrs, fmt.Sprintf(`label="%s"`, label))
 					case "head":
@@ -510,11 +510,11 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 				lineAttrs = append(lineAttrs, fmt.Sprintf("ltail=cluster_%s", hLine))
 
 				// Add arrowhead and style if it's a line graph type
-				if settings.GraphType == "line" {
-					shape := getShape(settings.GraphShapeData, settings.GraphShapes, data, defaultShape)
+				if el.GraphType == "line" {
+					shape := getShape(el.GraphShapeData, el.GraphShapes, data, defaultShape)
 					lineAttrs = append(lineAttrs, fmt.Sprintf("arrowhead=%s", shape))
 
-					style := getStyle(settings.GraphConfigData, settings.GraphConfigs, data, meta, defaultStyle)
+					style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultStyle)
 					lineAttrs = append(lineAttrs, style)
 				} else {
 					lineAttrs = append(lineAttrs, "arrowhead=icurve")
@@ -530,16 +530,16 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 	return dotString.String()
 }
 
-func arrangeNodes(graphElements []MapData) string {
+func arrangeNodes(nodes []MapData) string {
 	var dotString strings.Builder
 	var rowHeadNodes []string
 
-	if len(graphElements) > 3 {
+	if len(nodes) > 3 {
 		// 使用 math.Ceil 进行向上取整
-		numRow := int(math.Ceil(math.Sqrt(float64(len(graphElements)))))
+		numRow := int(math.Ceil(math.Sqrt(float64(len(nodes)))))
 
 		// 遍历节点并生成 DOT 格式的字符串
-		for index, node := range graphElements {
+		for index, node := range nodes {
 			guid := node["guid"].(string)
 
 			// 每行的第一个节点
@@ -558,7 +558,7 @@ func arrangeNodes(graphElements []MapData) string {
 		}
 
 		// 如果最后一行未填满，关闭 rank=same 的块
-		if (len(graphElements)-1)%numRow != numRow-1 {
+		if (len(nodes)-1)%numRow != numRow-1 {
 			dotString.WriteString("}\n")
 		}
 
