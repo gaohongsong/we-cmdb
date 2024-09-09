@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-func RenderMermaid(graph models.GraphQuery, dataList []MapData, option RenderOption) (dot string, err error) {
+func RenderMermaid(graph models.GraphQuery, dataList []map[string]interface{}, option RenderOption) (dot string, err error) {
 	log.Fatal("RenderMermaid not supported")
 	return "", nil
 }

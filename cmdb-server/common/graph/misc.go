@@ -29,7 +29,7 @@ func asList(data interface{}) []string {
 	return []string{data.(string)}
 }
 
-func isFilterFailed(setting *models.GraphElementNode, data MapData) bool {
+func isFilterFailed(setting *models.GraphElementNode, data map[string]interface{}) bool {
 	var filterValues []string
 	if setting.GraphFilterData != "" && setting.GraphFilterValues != "" {
 		if err := json.Unmarshal([]byte(setting.GraphFilterValues), &filterValues); err != nil {

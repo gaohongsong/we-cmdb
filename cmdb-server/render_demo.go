@@ -46,7 +46,7 @@ type CiType struct {
 type CiTypeMap map[string]CiType
 
 func RenderExample() {
-	var viewData []graph.MapData
+	var viewData []map[string]interface{}
 	if fileBytes, err := os.ReadFile("viewData.json"); err == nil {
 		_ = json.Unmarshal(fileBytes, &viewData)
 	} else {
@@ -67,7 +67,7 @@ func RenderExample() {
 		log.Fatal(err)
 	}
 
-	imageMap := graph.MapString{}
+	imageMap := map[string]string{}
 	for _, ciType := range ciTypeMapping {
 		imageMap[ciType.CiTypeId] = filepath.Join("/wecmdb/fonts/", ciType.ImageFile)
 	}

@@ -14,7 +14,7 @@ var (
 )
 
 // RenderDot render dot graph
-func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption) (dot string, err error) {
+func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, option RenderOption) (dot string, err error) {
 	suportVersion := option.SuportVersion
 	imageMap := option.ImageMap
 
@@ -110,7 +110,7 @@ func RenderDot(graph models.GraphQuery, dataList []MapData, option RenderOption)
 }
 
 // renderChildren render children elements
-func renderChildren(children []*models.GraphElementNode, graphData MapData, meta MetaData) RenderResult {
+func renderChildren(children []*models.GraphElementNode, graphData map[string]interface{}, meta MetaData) RenderResult {
 	var dot string
 	var lines []Line
 	var renderedItems []string
@@ -130,19 +130,19 @@ func renderChildren(children []*models.GraphElementNode, graphData MapData, meta
 }
 
 // renderChild render child element
-func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaData) (ret RenderResult) {
+func renderChild(child *models.GraphElementNode, graphData map[string]interface{}, meta MetaData) (ret RenderResult) {
 	if meta.GraphType == "subgraph" {
 		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
 	}
 	//newMeta := meta
 	//newMeta := copyMetaData(meta)
 
-	var childData []MapData
+	var childData []map[string]interface{}
 	tmp, _ := json.Marshal(graphData[child.DataName])
 	_ = json.Unmarshal(tmp, &childData)
 
 	//fmt.Printf("childData: %v+", childData)
-	//childData, ok = graphData[child.DataName].([]MapData)
+	//childData, ok = graphData[child.DataName].([]map[string]interface{})
 
 	nodeDot := ""
 	if child.GraphType != "subgraph" && meta.GraphType == "subgraph" {
@@ -172,7 +172,7 @@ func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaDat
 	return
 }
 
-func renderSubgraph(el *models.GraphElementNode, dataList []MapData, meta MetaData) RenderResult {
+func renderSubgraph(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 
@@ -224,7 +224,7 @@ func renderSubgraph(el *models.GraphElementNode, dataList []MapData, meta MetaDa
 	return RenderResult{DotString: dot.String(), Lines: lines, RenderedItems: renderedItems}
 }
 
-func renderImage(el *models.GraphElementNode, parentGuid string, dataList []MapData, meta MetaData) RenderResult {
+func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[string]interface{}, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dot strings.Builder
@@ -299,7 +299,7 @@ func renderImage(el *models.GraphElementNode, parentGuid string, dataList []MapD
 			lines = append(lines, Line{
 				Setting:  el,
 				MetaData: meta,
-				DataList: []MapData{data},
+				DataList: []map[string]interface{}{data},
 			})
 		}
 	}
@@ -312,7 +312,7 @@ func renderImage(el *models.GraphElementNode, parentGuid string, dataList []MapD
 	}
 }
 
-func renderNode(el *models.GraphElementNode, parentGuid string, dataList []MapData, meta MetaData) RenderResult {
+func renderNode(el *models.GraphElementNode, parentGuid string, dataList []map[string]interface{}, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dot strings.Builder
@@ -372,7 +372,7 @@ func renderNode(el *models.GraphElementNode, parentGuid string, dataList []MapDa
 			lines = append(lines, Line{
 				Setting:  el,
 				MetaData: meta,
-				DataList: []MapData{data},
+				DataList: []map[string]interface{}{data},
 			})
 		}
 	}
@@ -384,7 +384,7 @@ func renderNode(el *models.GraphElementNode, parentGuid string, dataList []MapDa
 	}
 }
 
-func renderLine(el *models.GraphElementNode, dataList []MapData, meta MetaData, renderedItems []string) string {
+func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData, renderedItems []string) string {
 	var dot strings.Builder
 	defaultShape := "normal"
 	var lines []Line
@@ -398,7 +398,7 @@ func renderLine(el *models.GraphElementNode, dataList []MapData, meta MetaData, 
 			var ret RenderResult
 
 			// todo
-			var childData []MapData
+			var childData []map[string]interface{}
 			tmp, _ := json.Marshal(data[child.DataName])
 			_ = json.Unmarshal(tmp, &childData)
 
@@ -492,7 +492,7 @@ func renderLine(el *models.GraphElementNode, dataList []MapData, meta MetaData, 
 	return dot.String()
 }
 
-func arrangeNodes(nodes []MapData) string {
+func arrangeNodes(nodes []map[string]interface{}) string {
 	var dot strings.Builder
 	var rowHeadNodes []string
 

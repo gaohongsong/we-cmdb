@@ -3,7 +3,7 @@ package view
 import (
 	"fmt"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/api/middleware"
-	"github.com/WeBankPartners/we-cmdb/cmdb-server/common/log"
+	"github.com/WeBankPartners/we-cmdb/cmdb-server/common/graph"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/services/db"
 	"github.com/gin-gonic/gin"
@@ -180,8 +180,6 @@ func GetViewData(c *gin.Context) {
 		middleware.ReturnServerHandleError(c, err)
 		return
 	}
-	// todo: build dotString
-	log.Logger.Info("build dot string")
 
 	if len(rowDataList) == 0 {
 		middleware.ReturnData(c, []string{})
@@ -203,4 +201,127 @@ func ConfirmView(c *gin.Context) {
 	} else {
 		middleware.ReturnData(c, result)
 	}
+}
+
+func GetViewGraphData(c *gin.Context) {
+	//Param validate
+	var param models.ViewData
+	var err error
+	if err = c.ShouldBindJSON(&param); err != nil {
+		middleware.ReturnParamValidateError(c, err)
+		return
+	}
+
+	// todo: GetViewSettings
+	viewId := param.ViewId
+	viewData, err := db.QueryViewById(viewId)
+
+	setting := viewData
+	if err != nil {
+		middleware.ReturnServerHandleError(c, err)
+	} else {
+		var graphsData []*models.SysGraphTable
+		graphsData, err = db.GetGraphByView(viewId)
+		if err != nil {
+			middleware.ReturnServerHandleError(c, err)
+			return
+		}
+
+		var graphElementNode *models.GraphElementNode
+		for _, graph := range graphsData {
+			graphQuery := &models.GraphQuery{ViewGraphType: graph.GraphType,
+				NodeGroups: graph.NodeGroups,
+				GraphDir:   graph.GraphDir,
+				Name:       graph.Name,
+			}
+			viewData.Graphs = append(viewData.Graphs, graphQuery)
+
+			graphElementNode, err = db.GetRootGraphElementByGraph(graph.Id)
+			if err != nil {
+				middleware.ReturnServerHandleError(c, err)
+				return
+			}
+			if graphElementNode != nil {
+				_, err = db.GetChildGraphElement(graphElementNode)
+				if err != nil {
+					middleware.ReturnServerHandleError(c, err)
+					return
+				}
+			}
+			graphQuery.RootData = graphElementNode
+		}
+	}
+
+	// todo: GetViewData
+	var rootGuidList []string
+	var reportId string
+	if param.ReportId != "" {
+		reportId = param.ReportId
+		rootGuidList, err = db.GetRootCiDataWithReportId(reportId)
+		if err != nil {
+			middleware.ReturnServerHandleError(c, err)
+			return
+		}
+	} else {
+		rootGuidList = strings.Split(param.RootCi, ",")
+		viewData, err := db.QueryViewById(param.ViewId)
+		if err != nil {
+			middleware.ReturnServerHandleError(c, err)
+			return
+		}
+		reportId = viewData.Report
+	}
+	var rootReportObjectsData []*models.ReportObjectNode
+	rootReportObjectsData, err = db.QueryRootReportObj(reportId)
+	if err != nil {
+		middleware.ReturnServerHandleError(c, err)
+		return
+	}
+	var rowDataList []map[string]interface{}
+	for _, roNode := range rootReportObjectsData {
+		var rowData []map[string]interface{}
+		rootReportAttr, rootAttrMap, tmpErr := db.GetReportAttr(roNode.Id)
+		if tmpErr != nil {
+			err = tmpErr
+			break
+		}
+		rowData, _, err = db.GetChildReportObject(roNode, rootGuidList, rootReportAttr, param.ConfirmTime, param.ViewId)
+		if err != nil {
+			break
+		}
+		for _, rowDataObj := range rowData {
+			tmpRowData := make(map[string]interface{})
+			for k, v := range rowDataObj {
+				if _, b := rootAttrMap[k]; b {
+					tmpRowData[rootAttrMap[k]] = v
+				} else {
+					if strings.HasSuffix(k, "^") {
+						k = k[:len(k)-1]
+					}
+					tmpRowData[k] = v
+				}
+			}
+			rowDataList = append(rowDataList, tmpRowData)
+		}
+	}
+	if err != nil {
+		middleware.ReturnServerHandleError(c, err)
+		return
+	}
+
+	dataList := rowDataList
+
+	fmt.Printf("settings: %v\n", setting)
+	fmt.Printf("dataList: %v\n", dataList)
+	var dots []string
+	for _, g := range setting.Graphs {
+		dot, _ := graph.RenderGraph(*g, dataList, graph.RenderOption{ImageMap: map[string]string{}})
+		dots = append(dots, dot)
+	}
+
+	middleware.ReturnData(c, map[string]interface{}{
+		"dots":     dots,
+		"dataList": dataList,
+		"setting":  setting,
+	})
 }
