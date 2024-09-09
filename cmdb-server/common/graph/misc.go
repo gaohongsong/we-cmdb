@@ -2,6 +2,7 @@ package graph
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
 	"math"
 	"strings"
@@ -174,6 +175,67 @@ func calculateShapeLabel(shape string, width, fontSize float64, label string) st
 		return label[:charLength-3] + "..."
 	}
 	return label
+}
+
+func arrangeNodes(nodes []map[string]interface{}) string {
+	var dot strings.Builder
+	var rowHeadNodes []string
+
+	if len(nodes) > 3 {
+		numRow := int(math.Ceil(math.Sqrt(float64(len(nodes)))))
+
+		for index, node := range nodes {
+			guid := node["guid"].(string)
+
+			if index%numRow == 0 {
+				dot.WriteString("{rank=same;")
+				rowHeadNodes = append(rowHeadNodes, guid)
+			}
+
+			dot.WriteString(guid + ";")
+
+			if index%numRow == numRow-1 {
+				dot.WriteString("}\n")
+			}
+		}
+
+		if (len(nodes)-1)%numRow != numRow-1 {
+			dot.WriteString("}\n")
+		}
+
+		for i := 0; i < len(rowHeadNodes)-1; i++ {
+			dot.WriteString(fmt.Sprintf("%s->%s[penwidth=0;minlen=1;arrowsize=0];\n", rowHeadNodes[i], rowHeadNodes[i+1]))
+		}
+	}
+
+	return dot.String()
+}
+
+func countDepth(graph models.GraphQuery) int {
+	var dfs func(*models.GraphElementNode, int) int
+	dfs = func(curNode *models.GraphElementNode, curDepth int) int {
+		if curNode.Children == nil || len(curNode.Children) == 0 {
+			return curDepth
+		}
+
+		maxDepth := curDepth
+		for _, child := range curNode.Children {
+			childDepth := dfs(child, curDepth+1)
+			if childDepth > maxDepth {
+				maxDepth = childDepth
+			}
+		}
+		return maxDepth
+	}
+
+	maxDepth := 0
+	for _, child := range graph.RootData.Children {
+		childDepth := dfs(child, 1)
+		if childDepth > maxDepth {
+			maxDepth = childDepth
+		}
+	}
+	return maxDepth
 }
 
 func copyMetaData(metaData MetaData) MetaData {

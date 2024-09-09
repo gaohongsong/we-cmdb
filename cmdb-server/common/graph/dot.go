@@ -10,7 +10,18 @@ import (
 )
 
 var (
-	defaultStyle = "penwidth=1;color=black;"
+	DefaultStyle = "penwidth=1;color=black;"
+	ShapeBox     = "box"
+	ShapeEllipse = "ellipse"
+	ShapeNormal  = "normal"
+)
+
+const (
+	SubgraphType = "subgraph"
+	ImageType    = "image"
+	NodeType     = "node"
+	LineType     = "line"
+	GroupType    = "group"
 )
 
 // RenderDot render dot graph
@@ -52,7 +63,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 		}
 
 		switch graph.ViewGraphType {
-		case "group":
+		case GroupType:
 			dot += fmt.Sprintf("{rank=same; \"%s\"; %s[id=\"%s\";label=\"%s\"; fontsize=%s; penwidth=1;width=2; image=\"%s\"; labelloc=\"b\"; shape=\"box\";",
 				graph.RootData.NodeGroupName, guid, guid, label, strconv.FormatFloat(meta.FontSize, 'g', -1, 64), option.ImageMap[graph.RootData.CiType])
 
@@ -62,7 +73,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 
 			dot += "}\n"
 
-		case "subgraph":
+		case SubgraphType:
 			depth := countDepth(graph)
 			meta.FontSize = 20
 			meta.FontStep = ((meta.FontSize - 14.0) * 1.0) / float64(depth-1)
@@ -73,7 +84,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 			dot += fmt.Sprintf("tooltip=\"%s\";\n", tooltip)
 			dot += fmt.Sprintf("%s[penwidth=0;width=0;height=0;label=\"\"];\n", guid)
 
-			style := getStyle(graph.RootData.GraphConfigData, graph.RootData.GraphConfigs, graphData, meta, defaultStyle)
+			style := getStyle(graph.RootData.GraphConfigData, graph.RootData.GraphConfigs, graphData, meta, DefaultStyle)
 			dot += fmt.Sprintf("%s\n", style)
 		}
 
@@ -91,7 +102,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 			lines = append(lines, ret.Lines...)
 		}
 
-		if graph.ViewGraphType == "subgraph" {
+		if graph.ViewGraphType == SubgraphType {
 			dot += "}\n"
 		}
 	}
@@ -131,7 +142,7 @@ func renderChildren(children []*models.GraphElementNode, graphData map[string]in
 
 // renderChild render child element
 func renderChild(child *models.GraphElementNode, graphData map[string]interface{}, meta MetaData) (ret RenderResult) {
-	if meta.GraphType == "subgraph" {
+	if meta.GraphType == SubgraphType {
 		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
 	}
 	//newMeta := meta
@@ -145,21 +156,21 @@ func renderChild(child *models.GraphElementNode, graphData map[string]interface{
 	//childData, ok = graphData[child.DataName].([]map[string]interface{})
 
 	nodeDot := ""
-	if child.GraphType != "subgraph" && meta.GraphType == "subgraph" {
+	if child.GraphType != "subgraph" && meta.GraphType == SubgraphType {
 		nodeDot = arrangeNodes(childData)
 	}
 
 	switch child.GraphType {
-	case "subgraph":
+	case SubgraphType:
 		ret = renderSubgraph(child, childData, meta)
-	case "image":
+	case ImageType:
 		parentGuid := mapGetStringAttr(graphData, "guid")
 		ret = renderImage(child, parentGuid, childData, meta)
 		ret.DotString += nodeDot
-	case "node":
+	case NodeType:
 		ret = renderNode(child, childData, meta)
 		ret.DotString += nodeDot
-	case "line":
+	case LineType:
 		ret = RenderResult{
 			Lines: []Line{{
 				Setting:  child,
@@ -191,7 +202,7 @@ func renderSubgraph(el *models.GraphElementNode, dataList []map[string]interface
 		renderedItems = append(renderedItems, guid)
 
 		label := renderLabel(el.DisplayExpression, data)
-		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultStyle)
+		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, DefaultStyle)
 
 		tooltip := keyName
 		if tooltip == "" {
@@ -228,7 +239,6 @@ func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[
 	var lines []Line
 	var dot strings.Builder
 	var defaultImageStyle string
-	defaultShape := "box"
 
 	if meta.SuportVersion == "yes" {
 		defaultImageStyle = `color="#dddddd";penwidth=1;`
@@ -265,7 +275,7 @@ func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[
 			"fixedsize=true",
 		}
 
-		shape := getShape(el.GraphShapeData, el.GraphShapes, data, defaultShape)
+		shape := getShape(el.GraphShapeData, el.GraphShapes, data, ShapeBox)
 		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultImageStyle)
 
 		nodeAttrs = append(nodeAttrs, []string{
@@ -315,7 +325,6 @@ func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, 
 	var renderedItems []string
 	var lines []Line
 	var dot strings.Builder
-	defaultShape := "ellipse"
 
 	for _, data := range dataList {
 		guid := mapGetStringAttr(data, "guid")
@@ -338,11 +347,11 @@ func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, 
 
 		label := renderLabel(el.DisplayExpression, data)
 
-		shape := getShape(el.GraphShapeData, el.GraphShapes, data, defaultShape)
+		shape := getShape(el.GraphShapeData, el.GraphShapes, data, ShapeEllipse)
 
 		newLabel := calculateShapeLabel(shape, nodeWidth, meta.FontSize, label)
 
-		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultStyle)
+		style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, DefaultStyle)
 
 		nodeAttrs = append(nodeAttrs,
 			fmt.Sprintf("shape=\"%s\"", shape),
@@ -385,7 +394,6 @@ func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, 
 
 func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData, renderedItems []string) string {
 	var dot strings.Builder
-	defaultShape := "normal"
 	var lines []Line
 
 	for _, data := range dataList {
@@ -400,7 +408,7 @@ func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, 
 			tmp, _ := json.Marshal(data[child.DataName])
 			_ = json.Unmarshal(tmp, &childData)
 
-			if meta.GraphType == "subgraph" {
+			if meta.GraphType == SubgraphType {
 				meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
 			}
 			//newMeta := meta
@@ -408,14 +416,14 @@ func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, 
 
 			// Process based on the graphType
 			switch child.GraphType {
-			case "subgraph":
+			case SubgraphType:
 				ret = renderSubgraph(child, childData, meta)
-			case "image":
+			case ImageType:
 				parentGuid := mapGetStringAttr(data, "guid")
 				ret = renderImage(child, parentGuid, childData, meta)
-			case "node":
+			case NodeType:
 				ret = renderNode(child, childData, meta)
-			case "line":
+			case LineType:
 				lines = append(lines, Line{
 					Setting:  child,
 					DataList: dataList,
@@ -468,10 +476,10 @@ func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, 
 
 				// Add arrowhead and style if it's a line graph type
 				if el.GraphType == "line" {
-					shape := getShape(el.GraphShapeData, el.GraphShapes, data, defaultShape)
+					shape := getShape(el.GraphShapeData, el.GraphShapes, data, ShapeNormal)
 					lineAttrs = append(lineAttrs, fmt.Sprintf("arrowhead=%s", shape))
 
-					style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, defaultStyle)
+					style := getStyle(el.GraphConfigData, el.GraphConfigs, data, meta, DefaultStyle)
 					lineAttrs = append(lineAttrs, style)
 				} else {
 					lineAttrs = append(lineAttrs, "arrowhead=icurve")
@@ -485,65 +493,4 @@ func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, 
 	}
 
 	return dot.String()
-}
-
-func arrangeNodes(nodes []map[string]interface{}) string {
-	var dot strings.Builder
-	var rowHeadNodes []string
-
-	if len(nodes) > 3 {
-		numRow := int(math.Ceil(math.Sqrt(float64(len(nodes)))))
-
-		for index, node := range nodes {
-			guid := node["guid"].(string)
-
-			if index%numRow == 0 {
-				dot.WriteString("{rank=same;")
-				rowHeadNodes = append(rowHeadNodes, guid)
-			}
-
-			dot.WriteString(guid + ";")
-
-			if index%numRow == numRow-1 {
-				dot.WriteString("}\n")
-			}
-		}
-
-		if (len(nodes)-1)%numRow != numRow-1 {
-			dot.WriteString("}\n")
-		}
-
-		for i := 0; i < len(rowHeadNodes)-1; i++ {
-			dot.WriteString(fmt.Sprintf("%s->%s[penwidth=0;minlen=1;arrowsize=0];\n", rowHeadNodes[i], rowHeadNodes[i+1]))
-		}
-	}
-
-	return dot.String()
-}
-
-func countDepth(graph models.GraphQuery) int {
-	var dfs func(*models.GraphElementNode, int) int
-	dfs = func(curNode *models.GraphElementNode, curDepth int) int {
-		if curNode.Children == nil || len(curNode.Children) == 0 {
-			return curDepth
-		}
-
-		maxDepth := curDepth
-		for _, child := range curNode.Children {
-			childDepth := dfs(child, curDepth+1)
-			if childDepth > maxDepth {
-				maxDepth = childDepth
-			}
-		}
-		return maxDepth
-	}
-
-	maxDepth := 0
-	for _, child := range graph.RootData.Children {
-		childDepth := dfs(child, 1)
-		if childDepth > maxDepth {
-			maxDepth = childDepth
-		}
-	}
-	return maxDepth
 }
