@@ -132,11 +132,12 @@ func renderChildren(children []*models.GraphElementNode, graphElement MapData, m
 // renderChild 渲染子元素
 func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaData) (ret RenderResult) {
 	// 子图字体逐级调小
-	//if meta.GraphType == "subgraph" {
-	//	// 修改meta的副本不会影响外面的meta，不再需要手动copy
-	//	meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
-	//}
-	newMeta := copyMetaData(meta)
+	if meta.GraphType == "subgraph" {
+		// 修改meta的副本不会影响外面的meta，不再需要手动copy
+		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
+	}
+	//newMeta := meta
+	//newMeta := copyMetaData(meta)
 
 	// todo
 	var childData []MapData
@@ -153,21 +154,21 @@ func renderChild(child *models.GraphElementNode, graphData MapData, meta MetaDat
 
 	switch child.GraphType {
 	case "subgraph":
-		ret = renderSubgraph(child, childData, newMeta)
+		ret = renderSubgraph(child, childData, meta)
 	case "image":
 		parentGuid := mapGetStringAttr(graphData, "guid")
-		ret = renderImage(child, parentGuid, childData, newMeta)
+		ret = renderImage(child, parentGuid, childData, meta)
 		ret.DotString += nodeDot
 	case "node":
 		parentGuid := mapGetStringAttr(graphData, "guid")
-		ret = renderNode(child, parentGuid, childData, newMeta)
+		ret = renderNode(child, parentGuid, childData, meta)
 		ret.DotString += nodeDot
 	case "line":
 		ret = RenderResult{
 			Lines: []Line{{
 				Setting:  child,
 				DataList: childData,
-				MetaData: newMeta,
+				MetaData: meta,
 			}},
 		}
 	}
@@ -438,28 +439,28 @@ func renderLine(settings *models.GraphElementNode, graphDataList []MapData, meta
 			_ = json.Unmarshal(tmp, &childData)
 
 			// 子图字体逐级调小
-			//if meta.GraphType == "subgraph" {
-			//	// 修改meta的副本不会影响外面的meta，不再需要手动copy
-			//	meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
-			//}
-
-			newMeta := copyMetaData(meta)
+			if meta.GraphType == "subgraph" {
+				// 修改meta的副本不会影响外面的meta，不再需要手动copy
+				meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
+			}
+			//newMeta := meta
+			//newMeta := copyMetaData(meta)
 
 			// Process based on the graphType
 			switch child.GraphType {
 			case "subgraph":
-				ret = renderSubgraph(child, childData, newMeta)
+				ret = renderSubgraph(child, childData, meta)
 			case "image":
 				parentGuid := mapGetStringAttr(data, "guid")
-				ret = renderImage(child, parentGuid, childData, newMeta)
+				ret = renderImage(child, parentGuid, childData, meta)
 			case "node":
 				parentGuid := mapGetStringAttr(data, "guid")
-				ret = renderNode(child, parentGuid, childData, newMeta)
+				ret = renderNode(child, parentGuid, childData, meta)
 			case "line":
 				lines = append(lines, Line{
 					Setting:  child,
 					DataList: graphDataList,
-					MetaData: newMeta,
+					MetaData: meta,
 				})
 			}
 			if child.GraphType != "line" {
