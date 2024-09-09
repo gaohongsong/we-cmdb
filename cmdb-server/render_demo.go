@@ -75,7 +75,10 @@ func RenderExample() {
 	var err error
 	var dot string
 	for index, g := range settingData.Graphs {
-		//fmt.Println(index, g.Name, g.ViewGraphType)
+		if index == 0 {
+			continue
+		}
+		fmt.Println(index, g.Name, g.ViewGraphType)
 		if dot, err = graph.RenderGraph(
 			g,
 			viewData,
@@ -97,7 +100,9 @@ func renderHtml(wr io.Writer, dot string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = tf.Execute(wr, dot)
+	err = tf.Execute(wr, map[string]interface{}{
+		"Dot": dot,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
