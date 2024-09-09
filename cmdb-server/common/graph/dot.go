@@ -547,23 +547,3 @@ func countDepth(graph models.GraphQuery) int {
 	}
 	return maxDepth
 }
-
-func copyMetaData(metaData MetaData) MetaData {
-	newMetaData := MetaData{
-		ConfirmTime:   metaData.ConfirmTime,
-		FontSize:      metaData.FontSize,
-		FontStep:      metaData.FontStep,
-		GraphDir:      metaData.GraphDir,
-		GraphType:     metaData.GraphType,
-		ImagesMap:     metaData.ImagesMap,
-		RenderedItems: metaData.RenderedItems,
-		SuportVersion: metaData.SuportVersion,
-	}
-
-	if newMetaData.GraphType == "subgraph" {
-		// 修改meta的副本不会影响外面的meta，不再需要手动copy
-		newMetaData.FontSize = math.Round((newMetaData.FontSize-newMetaData.FontStep)*100) / 100
-	}
-
-	return newMetaData
-}
