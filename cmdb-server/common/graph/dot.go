@@ -157,8 +157,7 @@ func renderChild(child *models.GraphElementNode, graphData map[string]interface{
 		ret = renderImage(child, parentGuid, childData, meta)
 		ret.DotString += nodeDot
 	case "node":
-		parentGuid := mapGetStringAttr(graphData, "guid")
-		ret = renderNode(child, parentGuid, childData, meta)
+		ret = renderNode(child, childData, meta)
 		ret.DotString += nodeDot
 	case "line":
 		ret = RenderResult{
@@ -312,7 +311,7 @@ func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[
 	}
 }
 
-func renderNode(el *models.GraphElementNode, parentGuid string, dataList []map[string]interface{}, meta MetaData) RenderResult {
+func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dot strings.Builder
@@ -397,14 +396,11 @@ func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, 
 		for _, child := range el.Children {
 			var ret RenderResult
 
-			// todo
 			var childData []map[string]interface{}
 			tmp, _ := json.Marshal(data[child.DataName])
 			_ = json.Unmarshal(tmp, &childData)
 
-			// 子图字体逐级调小
 			if meta.GraphType == "subgraph" {
-				// 修改meta的副本不会影响外面的meta，不再需要手动copy
 				meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
 			}
 			//newMeta := meta
@@ -418,8 +414,7 @@ func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, 
 				parentGuid := mapGetStringAttr(data, "guid")
 				ret = renderImage(child, parentGuid, childData, meta)
 			case "node":
-				parentGuid := mapGetStringAttr(data, "guid")
-				ret = renderNode(child, parentGuid, childData, meta)
+				ret = renderNode(child, childData, meta)
 			case "line":
 				lines = append(lines, Line{
 					Setting:  child,
