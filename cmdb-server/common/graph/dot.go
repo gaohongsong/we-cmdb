@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -29,7 +30,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 	suportVersion := option.SuportVersion
 	imageMap := option.ImageMap
 
-	dot = "digraph G {\n"
+	dot = "\ndigraph G {\n"
 	dot += fmt.Sprintf("rankdir=%s;edge[minlen=3];compound=true;\n", graph.GraphDir)
 	if graph.ViewGraphType == "group" {
 		dot += "Node [color=\"transparent\";fixedsize=\"true\";width=\"1.1\";height=\"1.1\";shape=box];\n"
@@ -39,12 +40,12 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 	var renderedItems []string
 	var lines []Line
 
-	for _, graphData := range dataList {
-		confirmTime := mapGetStringAttr(graphData, "confirm_time")
-		guid := mapGetStringAttr(graphData, "guid")
-		keyName := mapGetStringAttr(graphData, "key_name")
+	for _, data := range dataList {
+		confirmTime := mapGetStringAttr(data, "confirm_time")
+		guid := mapGetStringAttr(data, "guid")
+		keyName := mapGetStringAttr(data, "key_name")
 
-		meta := MetaData{
+		meta := Meta{
 			SuportVersion: suportVersion,
 			GraphType:     graph.ViewGraphType,
 			GraphDir:      graph.GraphDir,
@@ -54,7 +55,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 			ImagesMap:     imageMap,
 			RenderedItems: &renderedItems,
 		}
-		label := renderLabel(graph.RootData.DisplayExpression, graphData)
+		label := renderLabel(graph.RootData.DisplayExpression, data)
 		renderedItems = append(renderedItems, guid)
 
 		tooltip := keyName
@@ -75,6 +76,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 
 		case SubgraphType:
 			depth := countDepth(graph)
+			fmt.Println(depth)
 			meta.FontSize = 20
 			meta.FontStep = ((meta.FontSize - 14.0) * 1.0) / float64(depth-1)
 			dot += fmt.Sprintf("subgraph cluster_%s { \n", guid)
@@ -84,20 +86,28 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 			dot += fmt.Sprintf("tooltip=\"%s\";\n", tooltip)
 			dot += fmt.Sprintf("%s[penwidth=0;width=0;height=0;label=\"\"];\n", guid)
 
-			style := getStyle(graph.RootData.GraphConfigData, graph.RootData.GraphConfigs, graphData, meta, DefaultStyle)
-			fmt.Printf("style： %s\n", style)
+			style := getStyle(graph.RootData.GraphConfigData, graph.RootData.GraphConfigs, data, meta, DefaultStyle)
 			dot += fmt.Sprintf("%s\n", style)
 		}
 
-		for _, child := range graph.RootData.Children {
-			if isFilterFailed(child, graphData) {
+		for index, child := range graph.RootData.Children {
+			if isFilterFailed(child, data) {
+				fmt.Printf("skip child: %s, %s\n", child.GraphType, child.Id)
 				continue
 			}
 
-			ret := renderChild(child, graphData, meta)
+			ret := renderChild(index, child, data, meta)
 			if ret.Error != nil {
 				return "", ret.Error
 			}
+			fmt.Printf("render child: %s, %s\n", child.GraphType, child.Id)
+			jsonDebug(ret, fmt.Sprintf("renderChild_%s_%d.json", child.Id, index))
+			jsonDebug(map[string]interface{}{
+				"child": child,
+				"data":  data,
+				"meta":  meta,
+			}, fmt.Sprintf("renderChildRet_%s_%d.json", child.Id, index))
+
 			dot += ret.DotString
 			renderedItems = append(renderedItems, ret.RenderedItems...)
 			lines = append(lines, ret.Lines...)
@@ -108,8 +118,8 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 		}
 	}
 
-	//v, _ := json.Marshal(lines)
-	//fmt.Printf("lines: \n%s\n", v)
+	//vv, _ := json.Marshal(lines)
+	//fmt.Printf("lines: \n%s\n", vv)
 	for index, line := range lines {
 		dotLine := renderLine(line.Setting, line.DataList, line.MetaData, renderedItems)
 		fmt.Printf("%d ---> \n %s", index, dotLine)
@@ -122,13 +132,13 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 }
 
 // renderChildren render children elements
-func renderChildren(children []*models.GraphElementNode, graphData map[string]interface{}, meta MetaData) RenderResult {
+func renderChildren(children []*models.GraphElementNode, data map[string]interface{}, meta Meta) RenderResult {
 	var dot string
 	var lines []Line
 	var renderedItems []string
 
-	for _, child := range children {
-		ret := renderChild(child, graphData, meta)
+	for index, child := range children {
+		ret := renderChild(index, child, data, meta)
 		dot += ret.DotString
 		lines = append(lines, ret.Lines...)
 		renderedItems = append(renderedItems, ret.RenderedItems...)
@@ -142,7 +152,7 @@ func renderChildren(children []*models.GraphElementNode, graphData map[string]in
 }
 
 // renderChild render child element
-func renderChild(child *models.GraphElementNode, graphData map[string]interface{}, meta MetaData) (ret RenderResult) {
+func renderChild(index int, child *models.GraphElementNode, data map[string]interface{}, meta Meta) (ret RenderResult) {
 	if meta.GraphType == SubgraphType {
 		meta.FontSize = math.Round((meta.FontSize-meta.FontStep)*100) / 100
 	}
@@ -150,22 +160,28 @@ func renderChild(child *models.GraphElementNode, graphData map[string]interface{
 	//newMeta := copyMetaData(meta)
 
 	var childData []map[string]interface{}
-	tmp, _ := json.Marshal(graphData[child.DataName])
-	_ = json.Unmarshal(tmp, &childData)
+	tmp, _ := json.Marshal(data[child.DataName])
+	err := json.Unmarshal(tmp, &childData)
+	if err != nil {
+		log.Fatalf("childData err: %v+", err)
+	}
 
 	//fmt.Printf("childData: %v+", childData)
-	//childData, ok = graphData[child.DataName].([]map[string]interface{})
+	//childData, ok = data[child.DataName].([]map[string]interface{})
 
 	nodeDot := ""
-	if child.GraphType != "subgraph" && meta.GraphType == SubgraphType {
+	if child.GraphType != SubgraphType && meta.GraphType == SubgraphType {
 		nodeDot = arrangeNodes(childData)
+		//fmt.Printf("%s, nodeDot: %s\n", child.Id, nodeDot)
 	}
 
 	switch child.GraphType {
 	case SubgraphType:
 		ret = renderSubgraph(child, childData, meta)
+		fmt.Printf("%s, ret: \n %s\n", child.Id, ret.DotString)
+		jsonDebug(ret, fmt.Sprintf("ret_%s_%d.json", child.Id, index))
 	case ImageType:
-		parentGuid := mapGetStringAttr(graphData, "guid")
+		parentGuid := mapGetStringAttr(data, "guid")
 		ret = renderImage(child, parentGuid, childData, meta)
 		ret.DotString += nodeDot
 	case NodeType:
@@ -183,7 +199,7 @@ func renderChild(child *models.GraphElementNode, graphData map[string]interface{
 	return
 }
 
-func renderSubgraph(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData) RenderResult {
+func renderSubgraph(el *models.GraphElementNode, dataList []map[string]interface{}, meta Meta) RenderResult {
 	var renderedItems []string
 	var lines []Line
 
@@ -235,7 +251,7 @@ func renderSubgraph(el *models.GraphElementNode, dataList []map[string]interface
 	return RenderResult{DotString: dot.String(), Lines: lines, RenderedItems: renderedItems}
 }
 
-func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[string]interface{}, meta MetaData) RenderResult {
+func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[string]interface{}, meta Meta) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dot strings.Builder
@@ -322,7 +338,7 @@ func renderImage(el *models.GraphElementNode, parentGuid string, dataList []map[
 	}
 }
 
-func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData) RenderResult {
+func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, meta Meta) RenderResult {
 	var renderedItems []string
 	var lines []Line
 	var dot strings.Builder
@@ -393,7 +409,7 @@ func renderNode(el *models.GraphElementNode, dataList []map[string]interface{}, 
 	}
 }
 
-func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, meta MetaData, renderedItems []string) string {
+func renderLine(el *models.GraphElementNode, dataList []map[string]interface{}, meta Meta, renderedItems []string) string {
 	var dot strings.Builder
 	var lines []Line
 

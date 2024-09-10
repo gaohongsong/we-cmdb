@@ -7,7 +7,7 @@ type RenderOption struct {
 	ImageMap      map[string]string `json:"image_map"`
 }
 
-type MetaData struct {
+type Meta struct {
 	GraphType     string            `json:"graph_type"`
 	GraphDir      string            `json:"graph_dir"`
 	ConfirmTime   string            `json:"confirm_time"`
@@ -21,7 +21,7 @@ type MetaData struct {
 type Line struct {
 	Setting  *models.GraphElementNode `json:"setting"`
 	DataList []map[string]interface{} `json:"datas"`
-	MetaData MetaData                 `json:"metadata"`
+	MetaData Meta                     `json:"metadata"`
 }
 
 type RenderResult struct {

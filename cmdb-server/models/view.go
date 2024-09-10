@@ -39,6 +39,13 @@ type ViewData struct {
 	// Permission  string `json:"permission" xorm:"permission" binding:"required"`
 }
 
+type GraphViewData struct {
+	ViewId      string `json:"viewId"`
+	RootCi      string `json:"rootCi"`
+	GraphId     string `json:"graphId"`
+	ConfirmTime string `json:"confirmTime"`
+}
+
 type UpdateViewParam struct {
 	Id            string   `json:"viewId" xorm:"id" binding:"required"`
 	Name          string   `json:"name" xorm:"name" binding:"required"`

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
+	"log"
 	"math"
+	"os"
 	"strings"
 )
 
@@ -23,6 +25,7 @@ func isIn(str string, strList []string) bool {
 	}
 	return false
 }
+
 func asList(data interface{}) []string {
 	// Helper function to ensure the data is converted to a list of strings
 	if list, ok := data.([]string); ok {
@@ -60,6 +63,7 @@ func renderLabel(expression string, data map[string]interface{}) string {
 	}
 	return label
 }
+
 func exprGetString(data map[string]interface{}, expr string) string {
 	// 将 expr 按 "." 分割成多个部分
 	parts := strings.Split(expr, ".")
@@ -104,7 +108,7 @@ func getStyle(
 	graphConfigData string,
 	graphConfigs string,
 	data map[string]interface{},
-	metadata MetaData,
+	metadata Meta,
 	defaultStyle string,
 ) string {
 	// 确保 confirm_time 和 update_time 存在
@@ -117,9 +121,6 @@ func getStyle(
 		updateTime = val.(string)
 	}
 
-	fmt.Printf("confirm=%s, update=%s, version=%s, configData=%s, configs=%s",
-		confirmTime, updateTime, metadata.SuportVersion, graphConfigData, graphConfigs)
-
 	// 处理配置信息
 	var userStyleMap map[string]string
 	useMapping := graphConfigData != ""
@@ -130,17 +131,13 @@ func getStyle(
 		}
 	}
 
-	fmt.Printf("userStyle=%s\n", userStyleMap)
 	// 根据条件返回样式
 	if metadata.SuportVersion == "yes" &&
 		(confirmTime == "" || (confirmTime == metadata.ConfirmTime && confirmTime == updateTime)) &&
 		useMapping {
 		exprResult := exprGetString(data, graphConfigData)
-		fmt.Printf("exprResult=%s\n", exprResult)
 		if style, exists := userStyleMap[exprResult]; exists && style != "" {
 			return style
-		} else {
-			fmt.Printf("style not exist")
 		}
 	} else {
 		if useMapping {
@@ -245,8 +242,8 @@ func countDepth(graph models.GraphQuery) int {
 	return maxDepth
 }
 
-func copyMetaData(metaData MetaData) MetaData {
-	newMetaData := MetaData{
+func copyMetaData(metaData Meta) Meta {
+	newMetaData := Meta{
 		ConfirmTime:   metaData.ConfirmTime,
 		FontSize:      metaData.FontSize,
 		FontStep:      metaData.FontStep,
@@ -262,4 +259,12 @@ func copyMetaData(metaData MetaData) MetaData {
 		newMetaData.FontSize = math.Round((newMetaData.FontSize-newMetaData.FontStep)*100) / 100
 	}
 	return newMetaData
+}
+
+func jsonDebug(data interface{}, filename string) {
+	v, _ := json.Marshal(data)
+	err := os.WriteFile(filename, []byte(v), 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

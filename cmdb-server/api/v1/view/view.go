@@ -206,23 +206,23 @@ func ConfirmView(c *gin.Context) {
 
 func GetViewGraphData(c *gin.Context) {
 
-	//Param validate
-	var param models.ViewData
+	var param models.GraphViewData
 	var err error
 	if err = c.ShouldBindJSON(&param); err != nil {
 		middleware.ReturnParamValidateError(c, err)
 		return
 	}
 
-	// todo: ciTypeMapping
-	paramCi := models.CiTypeQuery{CiTypeId: c.Query("id")}
-	if c.Query("status") != "" {
-		paramCi.Status = strings.Split(c.Query("status"), ",")
+	// Query for ciTypeMapping and create imageMap
+	paramCi := models.CiTypeQuery{
+		CiTypeId:       c.Query("id"),
+		WithAttributes: "yes",
+		Status:         []string{"dirty", "created"},
 	}
-	paramCi.WithAttributes = c.Query("with-attributes")
 	err = db.CiTypesQuery(&paramCi)
 	if err != nil {
 		middleware.ReturnServerHandleError(c, err)
+		return
 	}
 
 	ciTypeMapping := paramCi.CiTypeListData
@@ -231,71 +231,64 @@ func GetViewGraphData(c *gin.Context) {
 		imageMap[ciType.Id] = filepath.Join("/wecmdb/fonts/", ciType.ImageFile)
 	}
 
-	// todo: GetViewSettings
+	// Query for viewSettings of multi graph
 	viewId := param.ViewId
-	viewData, err := db.QueryViewById(viewId)
+	var viewSettings *models.ViewQuery
+	if viewSettings, err = db.QueryViewById(viewId); err != nil {
+		middleware.ReturnServerHandleError(c, err)
+		return
+	}
 
-	setting := viewData
+	var graphsData []*models.SysGraphTable
+	graphsData, err = db.GetGraphByView(viewId)
 	if err != nil {
 		middleware.ReturnServerHandleError(c, err)
-	} else {
-		var graphsData []*models.SysGraphTable
-		graphsData, err = db.GetGraphByView(viewId)
-		if err != nil {
+		return
+	}
+
+	var graphElementNode *models.GraphElementNode
+	for _, g := range graphsData {
+		graphQuery := &models.GraphQuery{
+			ViewGraphType: g.GraphType,
+			NodeGroups:    g.NodeGroups,
+			GraphDir:      g.GraphDir,
+			Name:          g.Name,
+		}
+		viewSettings.Graphs = append(viewSettings.Graphs, graphQuery)
+
+		if graphElementNode, err = db.GetRootGraphElementByGraph(g.Id); err != nil {
 			middleware.ReturnServerHandleError(c, err)
 			return
 		}
 
-		var graphElementNode *models.GraphElementNode
-		for _, graph := range graphsData {
-			graphQuery := &models.GraphQuery{ViewGraphType: graph.GraphType,
-				NodeGroups: graph.NodeGroups,
-				GraphDir:   graph.GraphDir,
-				Name:       graph.Name,
-			}
-			viewData.Graphs = append(viewData.Graphs, graphQuery)
-
-			graphElementNode, err = db.GetRootGraphElementByGraph(graph.Id)
-			if err != nil {
+		if graphElementNode != nil {
+			if _, err = db.GetChildGraphElement(graphElementNode); err != nil {
 				middleware.ReturnServerHandleError(c, err)
 				return
 			}
-			if graphElementNode != nil {
-				_, err = db.GetChildGraphElement(graphElementNode)
-				if err != nil {
-					middleware.ReturnServerHandleError(c, err)
-					return
-				}
-			}
-			graphQuery.RootData = graphElementNode
 		}
+
+		graphQuery.RootData = graphElementNode
 	}
 
-	// todo: GetViewData
+	// Query ViewData of multi graph
 	var rootGuidList []string
-	var reportId string
-	if param.ReportId != "" {
-		reportId = param.ReportId
-		rootGuidList, err = db.GetRootCiDataWithReportId(reportId)
-		if err != nil {
-			middleware.ReturnServerHandleError(c, err)
-			return
-		}
-	} else {
-		rootGuidList = strings.Split(param.RootCi, ",")
-		viewData, err := db.QueryViewById(param.ViewId)
-		if err != nil {
-			middleware.ReturnServerHandleError(c, err)
-			return
-		}
-		reportId = viewData.Report
+
+	rootGuidList = strings.Split(param.RootCi, ",")
+	var viewData *models.ViewQuery
+	if viewData, err = db.QueryViewById(param.ViewId); err != nil {
+		middleware.ReturnServerHandleError(c, err)
+		return
 	}
+
+	reportId := viewData.Report
 	var rootReportObjectsData []*models.ReportObjectNode
 	rootReportObjectsData, err = db.QueryRootReportObj(reportId)
 	if err != nil {
 		middleware.ReturnServerHandleError(c, err)
 		return
 	}
+
 	var rowDataList []map[string]interface{}
 	for _, roNode := range rootReportObjectsData {
 		var rowData []map[string]interface{}
@@ -328,24 +321,18 @@ func GetViewGraphData(c *gin.Context) {
 		return
 	}
 
-	dataList := rowDataList
-
-	//v, _ := json.Marshal(setting)
-	//fmt.Printf("settings: %s\n", string(v))
-
-	//fmt.Printf("dataList: %v\n", dataList)
-	var dots []string
-	for _, g := range setting.Graphs {
-		dot, _ := graph.Render(*g, dataList, graph.RenderOption{
-			SuportVersion: setting.SuportVersion, ImageMap: imageMap,
+	// Render multi graph
+	//dots := []string{}
+	dots := make(map[string]string)
+	for _, g := range viewSettings.Graphs {
+		dot, _ := graph.Render(*g, rowDataList, graph.RenderOption{
+			SuportVersion: viewSettings.SuportVersion, ImageMap: imageMap,
 		})
 		fmt.Println(dot)
-		dots = append(dots, dot)
+		dotSingle := strings.Replace(strings.Replace(dot, "\n", "", -1), "\t", "", -1)
+		dots[g.RootData.Graph] = dotSingle
+		//dots = append(dots, dotSingle)
 	}
 
-	middleware.ReturnData(c, map[string]interface{}{
-		"dots": dots,
-		//"dataList": dataList,
-		//"setting":  setting,
-	})
+	middleware.ReturnData(c, dots)
 }

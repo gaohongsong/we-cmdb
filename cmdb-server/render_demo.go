@@ -16,17 +16,6 @@ func main() {
 	RenderExample()
 }
 
-type viewSettings struct {
-	Editable      string              `json:"editable"`
-	SuportVersion string              `json:"suportVersion"`
-	Multiple      string              `json:"multiple"`
-	Report        string              `json:"report"`
-	CiType        string              `json:"ciType"`
-	FilterAttr    string              `json:"filterAttr"`
-	FilterValue   string              `json:"filterValue"`
-	Graphs        []models.GraphQuery `json:"graphs"`
-}
-
 type CiType struct {
 	CiTypeId     string `json:"ciTypeId"`
 	Name         string `json:"name"`
@@ -53,7 +42,7 @@ func RenderExample() {
 		log.Fatal(err)
 	}
 
-	var settingData viewSettings
+	var settingData models.ViewQuery
 	if fileBytes, err := os.ReadFile("viewSettings.json"); err == nil {
 		_ = json.Unmarshal(fileBytes, &settingData)
 	} else {
@@ -74,13 +63,10 @@ func RenderExample() {
 
 	var err error
 	var dot string
-	for index, g := range settingData.Graphs {
-		//if index == 0 {
-		//	continue
-		//}
+	for index, g := range settingData.Graphs[1:] {
 		fmt.Println(index, g.Name, g.ViewGraphType)
 		if dot, err = graph.Render(
-			g,
+			*g,
 			viewData,
 			graph.RenderOption{SuportVersion: settingData.SuportVersion, ImageMap: imageMap},
 		); err != nil {
