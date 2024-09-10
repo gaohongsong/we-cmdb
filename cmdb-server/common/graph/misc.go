@@ -117,6 +117,9 @@ func getStyle(
 		updateTime = val.(string)
 	}
 
+	fmt.Printf("confirm=%s, update=%s, version=%s, configData=%s, configs=%s",
+		confirmTime, updateTime, metadata.SuportVersion, graphConfigData, graphConfigs)
+
 	// 处理配置信息
 	var userStyleMap map[string]string
 	useMapping := graphConfigData != ""
@@ -127,13 +130,17 @@ func getStyle(
 		}
 	}
 
+	fmt.Printf("userStyle=%s\n", userStyleMap)
 	// 根据条件返回样式
 	if metadata.SuportVersion == "yes" &&
 		(confirmTime == "" || (confirmTime == metadata.ConfirmTime && confirmTime == updateTime)) &&
 		useMapping {
 		exprResult := exprGetString(data, graphConfigData)
+		fmt.Printf("exprResult=%s\n", exprResult)
 		if style, exists := userStyleMap[exprResult]; exists && style != "" {
 			return style
+		} else {
+			fmt.Printf("style not exist")
 		}
 	} else {
 		if useMapping {

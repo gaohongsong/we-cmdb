@@ -7,6 +7,7 @@ import (
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/models"
 	"github.com/WeBankPartners/we-cmdb/cmdb-server/services/db"
 	"github.com/gin-gonic/gin"
+	"path/filepath"
 	"strings"
 )
 
@@ -204,12 +205,30 @@ func ConfirmView(c *gin.Context) {
 }
 
 func GetViewGraphData(c *gin.Context) {
+
 	//Param validate
 	var param models.ViewData
 	var err error
 	if err = c.ShouldBindJSON(&param); err != nil {
 		middleware.ReturnParamValidateError(c, err)
 		return
+	}
+
+	// todo: ciTypeMapping
+	paramCi := models.CiTypeQuery{CiTypeId: c.Query("id")}
+	if c.Query("status") != "" {
+		paramCi.Status = strings.Split(c.Query("status"), ",")
+	}
+	paramCi.WithAttributes = c.Query("with-attributes")
+	err = db.CiTypesQuery(&paramCi)
+	if err != nil {
+		middleware.ReturnServerHandleError(c, err)
+	}
+
+	ciTypeMapping := paramCi.CiTypeListData
+	imageMap := map[string]string{}
+	for _, ciType := range ciTypeMapping {
+		imageMap[ciType.Id] = filepath.Join("/wecmdb/fonts/", ciType.ImageFile)
 	}
 
 	// todo: GetViewSettings
@@ -311,17 +330,22 @@ func GetViewGraphData(c *gin.Context) {
 
 	dataList := rowDataList
 
-	fmt.Printf("settings: %v\n", setting)
-	fmt.Printf("dataList: %v\n", dataList)
+	//v, _ := json.Marshal(setting)
+	//fmt.Printf("settings: %s\n", string(v))
+
+	//fmt.Printf("dataList: %v\n", dataList)
 	var dots []string
 	for _, g := range setting.Graphs {
-		dot, _ := graph.Render(*g, dataList, graph.RenderOption{ImageMap: map[string]string{}})
+		dot, _ := graph.Render(*g, dataList, graph.RenderOption{
+			SuportVersion: setting.SuportVersion, ImageMap: imageMap,
+		})
+		fmt.Println(dot)
 		dots = append(dots, dot)
 	}
 
 	middleware.ReturnData(c, map[string]interface{}{
-		"dots":     dots,
-		"dataList": dataList,
-		"setting":  setting,
+		"dots": dots,
+		//"dataList": dataList,
+		//"setting":  setting,
 	})
 }

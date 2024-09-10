@@ -85,6 +85,7 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 			dot += fmt.Sprintf("%s[penwidth=0;width=0;height=0;label=\"\"];\n", guid)
 
 			style := getStyle(graph.RootData.GraphConfigData, graph.RootData.GraphConfigs, graphData, meta, DefaultStyle)
+			fmt.Printf("style： %s\n", style)
 			dot += fmt.Sprintf("%s\n", style)
 		}
 
@@ -107,8 +108,8 @@ func RenderDot(graph models.GraphQuery, dataList []map[string]interface{}, optio
 		}
 	}
 
-	v, _ := json.Marshal(lines)
-	fmt.Printf("lines: \n%s\n", v)
+	//v, _ := json.Marshal(lines)
+	//fmt.Printf("lines: \n%s\n", v)
 	for index, line := range lines {
 		dotLine := renderLine(line.Setting, line.DataList, line.MetaData, renderedItems)
 		fmt.Printf("%d ---> \n %s", index, dotLine)

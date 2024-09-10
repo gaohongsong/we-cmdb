@@ -35,7 +35,7 @@
   "auth": {
     "enable": true,
     "password_seed": "",
-    "expire_sec": 600,
+    "expire_sec": 60000000,
     "fresh_token_expire": 1800
   },
   "default_report_obj_attr": [
